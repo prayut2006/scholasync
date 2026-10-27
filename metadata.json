@@ -1,0 +1,6 @@
+{
+  "name": "ScholaSync - Modern Student Management System",
+  "description": "Comprehensive school ERP platform featuring student performance metrics, grade tracking, automated attendance registers, and a complete fees & invoice portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

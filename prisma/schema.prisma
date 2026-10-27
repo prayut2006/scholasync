@@ -1,0 +1,368 @@
+// Prisma schema for ScholaSync - MySQL Database
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  admin
+  teacher
+  student
+  staff
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.VarChar(36)
+  name         String    @db.VarChar(191)
+  email        String    @unique @db.VarChar(191)
+  passwordHash String    @db.VarChar(255)
+  role         Role      @default(student)
+  scholarNo    String?   @unique @db.VarChar(64)
+  designation  String?   @db.VarChar(128)
+  phone        String?   @db.VarChar(32)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  student      Student?
+  teacher      Teacher?
+  staff        Staff?
+
+  @@map("users")
+}
+
+model Student {
+  id             String    @id @default(uuid()) @db.VarChar(36)
+  userId         String?   @unique @db.VarChar(36)
+  admissionNo    String    @unique @db.VarChar(64)
+  name           String    @db.VarChar(191)
+  email          String    @db.VarChar(191)
+  gradeLevel     String    @db.VarChar(64)
+  section        String    @db.VarChar(32)
+  rollNo         Int
+  gender         String    @db.VarChar(16)
+  dob            String    @db.VarChar(32)
+  parentName     String    @db.VarChar(191)
+  parentPhone    String    @db.VarChar(32)
+  parentEmail    String    @db.VarChar(191)
+  address        String    @db.Text
+  bloodGroup     String    @db.VarChar(8)
+  gpa            Float     @default(8.5)
+  percentage     Float     @default(85.0)
+  attendanceRate Float     @default(100.0)
+  feeStatus      String    @default("pending") @db.VarChar(32)
+  outstandingFee Int       @default(45000)
+  enrolledDate   String    @db.VarChar(32)
+  aadhaarNumber  String?   @db.VarChar(32)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  grades         GradeRecord[]
+  attendance     AttendanceEntry[]
+  invoices       Invoice[]
+  leaves         LeaveApplication[]
+  payments       FeePayment[]
+  submissions    AssignmentSubmission[]
+
+  @@map("students")
+}
+
+model Teacher {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  userId          String?      @unique @db.VarChar(36)
+  employeeId      String       @unique @db.VarChar(64)
+  name            String       @db.VarChar(191)
+  email           String       @db.VarChar(191)
+  department      String       @db.VarChar(128)
+  designation     String       @db.VarChar(128)
+  phone           String       @db.VarChar(32)
+  subjects        String       @db.Text
+  assignedClasses String       @db.Text
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  user            User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignments     Assignment[]
+
+  @@map("teachers")
+}
+
+model Staff {
+  id          String            @id @default(uuid()) @db.VarChar(36)
+  userId      String            @unique @db.VarChar(36)
+  employeeId  String            @unique @db.VarChar(64)
+  name        String            @db.VarChar(191)
+  email       String            @db.VarChar(191)
+  department  String            @db.VarChar(128)
+  designation String            @db.VarChar(128)
+  phone       String            @db.VarChar(32)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions StaffPermission[]
+  tasks       StaffTask[]
+
+  @@map("staff")
+}
+
+model StaffPermission {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  staffId   String   @db.VarChar(36)
+  module    String   @db.VarChar(64) // finance, admissions, records, attendance, general
+  canRead   Boolean  @default(true)
+  canWrite  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, module])
+  @@map("staff_permissions")
+}
+
+model StaffTask {
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  title            String    @db.VarChar(255)
+  description      String    @db.Text
+  assignedToStaffId String   @db.VarChar(36)
+  priority         String    @default("medium") @db.VarChar(32) // low, medium, high, urgent
+  status           String    @default("pending") @db.VarChar(32) // pending, in_progress, completed, cancelled
+  dueDate          String    @db.VarChar(32)
+  completedAt      DateTime?
+  createdBy        String    @db.VarChar(191)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  assignedStaff    Staff     @relation(fields: [assignedToStaffId], references: [id], onDelete: Cascade)
+
+  @@map("staff_tasks")
+}
+
+model GradeRecord {
+  id                   String         @id @default(uuid()) @db.VarChar(36)
+  studentId            String         @db.VarChar(36)
+  academicYear         String         @db.VarChar(32)
+  term                 String         @db.VarChar(64)
+  gradeLevel           String         @db.VarChar(64)
+  section              String         @db.VarChar(32)
+  overallGpa           Float
+  overallPercentage    Float
+  classRank            Int
+  totalStudentsInClass Int
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  student              Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjects             SubjectGrade[]
+
+  @@map("grade_records")
+}
+
+model SubjectGrade {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  gradeRecordId   String       @db.VarChar(36)
+  subject         String       @db.VarChar(128)
+  teacherName     String       @db.VarChar(191)
+  credits         Int
+  quizScore       Int
+  assignmentScore Int
+  midtermScore    Int
+  finalExamScore  Int
+  totalScore      Int
+  letterGrade     String       @db.VarChar(8)
+  gradePoint      Int
+  remarks         String       @db.Text
+
+  gradeRecord     GradeRecord  @relation(fields: [gradeRecordId], references: [id], onDelete: Cascade)
+
+  @@map("subject_grades")
+}
+
+model AttendanceEntry {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  studentId   String   @db.VarChar(36)
+  date        String   @db.VarChar(32)
+  status      String   @db.VarChar(16)
+  remarks     String?  @db.VarChar(255)
+  markedBy    String   @db.VarChar(191)
+  createdAt   DateTime @default(now())
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+  @@map("attendance_entries")
+}
+
+model Invoice {
+  id            String       @id @default(uuid()) @db.VarChar(36)
+  invoiceNumber String       @unique @db.VarChar(64)
+  studentId     String       @db.VarChar(36)
+  academicTerm  String       @db.VarChar(128)
+  issueDate     String       @db.VarChar(32)
+  dueDate       String       @db.VarChar(32)
+  totalAmount   Int
+  paidAmount    Int
+  status        String       @db.VarChar(32) // pending, paid, overdue, partial
+  paymentDate   String?      @db.VarChar(32)
+  transactionId String?      @db.VarChar(128)
+  paymentMethod String?      @db.VarChar(128)
+  upiVpa        String?      @db.VarChar(128)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  items         FeeItem[]
+  payments      FeePayment[]
+
+  @@map("invoices")
+}
+
+model FeeItem {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  invoiceId String   @db.VarChar(36)
+  name      String   @db.VarChar(191)
+  category  String   @db.VarChar(64)
+  amount    Int
+
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("fee_items")
+}
+
+model FeePayment {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  invoiceId     String   @db.VarChar(36)
+  studentId     String   @db.VarChar(36)
+  amount        Int
+  paymentMethod String   @db.VarChar(64) // Cash, UPI, Bank Transfer, Net Banking, Card
+  transactionRef String? @db.VarChar(128)
+  receiptNumber String   @unique @db.VarChar(64)
+  paymentDate   String   @db.VarChar(32)
+  recordedBy    String   @db.VarChar(191)
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("fee_payments")
+}
+
+model LeaveApplication {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  studentId   String   @db.VarChar(36)
+  fromDate    String   @db.VarChar(32)
+  toDate      String   @db.VarChar(32)
+  reason      String   @db.Text
+  status      String   @default("pending") @db.VarChar(32) // pending, approved, rejected
+  appliedAt   String   @db.VarChar(32)
+  reviewedBy  String?  @db.VarChar(191)
+  createdAt   DateTime @default(now())
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("leave_applications")
+}
+
+model Announcement {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  title      String   @db.VarChar(255)
+  category   String   @db.VarChar(64)
+  content    String   @db.Text
+  author     String   @db.VarChar(191)
+  date       String   @db.VarChar(32)
+  priority   String   @default("normal") @db.VarChar(16)
+  targetRole String   @default("all") @db.VarChar(32) // all, student, teacher, staff, admin
+  createdAt  DateTime @default(now())
+
+  @@map("announcements")
+}
+
+model TimetableSlot {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  className String   @db.VarChar(64)
+  period    Int
+  time      String   @db.VarChar(64)
+  subject   String   @db.VarChar(128)
+  teacher   String   @db.VarChar(191)
+  room      String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@map("timetable_slots")
+}
+
+model Assignment {
+  id          String                 @id @default(uuid()) @db.VarChar(36)
+  title       String                 @db.VarChar(255)
+  description String                 @db.Text
+  subject     String                 @db.VarChar(128)
+  teacherId   String?                @db.VarChar(36)
+  gradeLevel  String                 @db.VarChar(64)
+  section     String                 @db.VarChar(32)
+  dueDate     String                 @db.VarChar(32)
+  maxMarks    Int                    @default(100)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  teacher     Teacher?               @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  submissions AssignmentSubmission[]
+
+  @@map("assignments")
+}
+
+model AssignmentSubmission {
+  id            String     @id @default(uuid()) @db.VarChar(36)
+  assignmentId  String     @db.VarChar(36)
+  studentId     String     @db.VarChar(36)
+  submittedAt   DateTime   @default(now())
+  content       String?    @db.Text
+  fileUrl       String?    @db.VarChar(255)
+  marksObtained Float?
+  feedback      String?    @db.Text
+  status        String     @default("submitted") @db.VarChar(32) // submitted, graded
+
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student       Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@map("assignment_submissions")
+}
+
+model ExamSchedule {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  title        String   @db.VarChar(191)
+  term         String   @db.VarChar(64)
+  academicYear String   @db.VarChar(32)
+  gradeLevel   String   @db.VarChar(64)
+  section      String?  @db.VarChar(32)
+  subject      String   @db.VarChar(128)
+  date         String   @db.VarChar(32)
+  time         String   @db.VarChar(64)
+  room         String   @db.VarChar(64)
+  maxMarks     Int      @default(100)
+  createdAt    DateTime @default(now())
+
+  @@map("exam_schedules")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  action      String   @db.VarChar(128) // e.g. "USER_LOGIN", "STUDENT_ADMITTED", "PAYMENT_RECORDED", "MARKS_UPDATED"
+  entity      String   @db.VarChar(64)  // "student", "invoice", "payment", "user", "grade"
+  entityId    String?  @db.VarChar(64)
+  performedBy String   @db.VarChar(191) // Email or username
+  role        String   @db.VarChar(32)
+  details     String?  @db.Text
+  ipAddress   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
